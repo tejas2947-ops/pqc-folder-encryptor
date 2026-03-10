@@ -1,3 +1,16 @@
+<p align="center">
+  <img src="assets/banner-dark.svg" alt="TTPSEC PQC Folder Encryptor" width="700"/>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License"/></a>
+  <img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+"/>
+  <img src="https://img.shields.io/badge/FIPS_203-ML--KEM--768-00e676.svg" alt="FIPS 203"/>
+  <img src="https://img.shields.io/badge/FIPS_204-ML--DSA--65-ff9800.svg" alt="FIPS 204"/>
+  <img src="https://img.shields.io/badge/AES--256--GCM-00b0ff.svg" alt="AES-256-GCM"/>
+  <img src="https://img.shields.io/badge/Argon2id-9c27b0.svg" alt="Argon2id"/>
+</p>
+
 # PQC Folder Encryptor
 
 Post-quantum cryptography folder encryption tool. Encrypts entire directories into a single `.pqc` file using NIST-standardized post-quantum algorithms.
@@ -60,6 +73,10 @@ build_exe.bat
   - `argon2-cffi` - Argon2id password hashing
 
 ## How It Works
+
+<p align="center">
+  <img src="assets/architecture.svg" alt="Encryption Architecture" width="700"/>
+</p>
 
 ### Encryption
 

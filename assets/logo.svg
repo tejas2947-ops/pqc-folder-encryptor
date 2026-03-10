@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" fill="none">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00e676;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00b0ff;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00e676;stop-opacity:0.2" />
+      <stop offset="100%" style="stop-color:#00b0ff;stop-opacity:0.2" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="200" rx="16" fill="#080b12"/>
+
+  <!-- Shield icon -->
+  <g transform="translate(30, 20)">
+    <!-- Shield body -->
+    <path d="M80 15 L140 35 L140 95 C140 130 115 155 80 170 C45 155 20 130 20 95 L20 35 Z"
+          fill="none" stroke="url(#grad1)" stroke-width="4"/>
+    <!-- Lock inside shield -->
+    <rect x="58" y="85" width="44" height="35" rx="4" fill="none" stroke="#00e676" stroke-width="3"/>
+    <path d="M68 85 L68 72 C68 58 92 58 92 72 L92 85" fill="none" stroke="#00e676" stroke-width="3"/>
+    <circle cx="80" cy="100" r="4" fill="#00e676"/>
+    <line x1="80" y1="104" x2="80" y2="112" stroke="#00e676" stroke-width="3"/>
+    <!-- Quantum dots -->
+    <circle cx="40" cy="55" r="3" fill="#00b0ff" opacity="0.6"/>
+    <circle cx="120" cy="55" r="3" fill="#00b0ff" opacity="0.6"/>
+    <circle cx="50" cy="140" r="2" fill="#00e676" opacity="0.4"/>
+    <circle cx="110" cy="140" r="2" fill="#00e676" opacity="0.4"/>
+    <!-- Lattice lines (quantum reference) -->
+    <line x1="35" y1="50" x2="55" y2="70" stroke="#00b0ff" stroke-width="1" opacity="0.3"/>
+    <line x1="125" y1="50" x2="105" y2="70" stroke="#00b0ff" stroke-width="1" opacity="0.3"/>
+  </g>
+
+  <!-- TTPSEC text -->
+  <text x="190" y="90" font-family="Consolas, monospace" font-size="52" font-weight="bold" fill="#ffffff">TTPSEC</text>
+
+  <!-- Subtitle -->
+  <text x="190" y="125" font-family="Segoe UI, sans-serif" font-size="20" fill="#4a5568">Post-Quantum Folder Encryptor</text>
+
+  <!-- Algorithm badges -->
+  <g transform="translate(190, 145)">
+    <rect x="0" y="0" width="110" height="26" rx="4" fill="none" stroke="#00e676" stroke-width="1.5"/>
+    <text x="55" y="18" font-family="Consolas, monospace" font-size="12" font-weight="bold" fill="#00e676" text-anchor="middle">ML-KEM-768</text>
+
+    <rect x="120" y="0" width="115" height="26" rx="4" fill="none" stroke="#00b0ff" stroke-width="1.5"/>
+    <text x="177" y="18" font-family="Consolas, monospace" font-size="12" font-weight="bold" fill="#00b0ff" text-anchor="middle">AES-256-GCM</text>
+
+    <rect x="245" y="0" width="100" height="26" rx="4" fill="none" stroke="#ff9800" stroke-width="1.5"/>
+    <text x="295" y="18" font-family="Consolas, monospace" font-size="12" font-weight="bold" fill="#ff9800" text-anchor="middle">ML-DSA-65</text>
+
+    <rect x="355" y="0" width="90" height="26" rx="4" fill="none" stroke="#9c27b0" stroke-width="1.5"/>
+    <text x="400" y="18" font-family="Consolas, monospace" font-size="12" font-weight="bold" fill="#9c27b0" text-anchor="middle">Argon2id</text>
+  </g>
+
+  <!-- Version badge top right -->
+  <rect x="680" y="15" width="100" height="28" rx="14" fill="url(#grad2)" stroke="url(#grad1)" stroke-width="1"/>
+  <text x="730" y="34" font-family="Consolas, monospace" font-size="13" font-weight="bold" fill="#00e676" text-anchor="middle">v2.0.0</text>
+
+  <!-- FIPS text bottom right -->
+  <text x="770" y="185" font-family="Consolas, monospace" font-size="11" fill="#1a2535" text-anchor="end">FIPS 203 / FIPS 204</text>
+</svg>

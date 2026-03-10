@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" fill="none">
+  <defs>
+    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00e676;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00b0ff;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00e676;stop-opacity:0.08" />
+      <stop offset="100%" style="stop-color:#00b0ff;stop-opacity:0.08" />
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1a2535" stroke-width="0.5" opacity="0.4"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="400" fill="#080b12"/>
+  <rect width="800" height="400" fill="url(#grid)"/>
+
+  <!-- Glow effect -->
+  <ellipse cx="400" cy="200" rx="350" ry="180" fill="url(#g2)"/>
+
+  <!-- Central shield -->
+  <g transform="translate(310, 40)">
+    <!-- Outer shield -->
+    <path d="M90 20 L165 45 L165 120 C165 165 135 200 90 220 C45 200 15 165 15 120 L15 45 Z"
+          fill="none" stroke="url(#g1)" stroke-width="3" opacity="0.3"/>
+    <!-- Inner shield -->
+    <path d="M90 35 L150 55 L150 115 C150 150 125 178 90 195 C55 178 30 150 30 115 L30 55 Z"
+          fill="#080b12" stroke="url(#g1)" stroke-width="2.5"/>
+
+    <!-- Lock -->
+    <rect x="65" y="105" width="50" height="40" rx="5" fill="none" stroke="#00e676" stroke-width="2.5"/>
+    <path d="M75 105 L75 88 C75 70 105 70 105 88 L105 105" fill="none" stroke="#00e676" stroke-width="2.5"/>
+    <circle cx="90" cy="122" r="5" fill="#00e676"/>
+    <line x1="90" y1="127" x2="90" y2="137" stroke="#00e676" stroke-width="2.5" stroke-linecap="round"/>
+
+    <!-- Quantum lattice points around shield -->
+    <circle cx="0" cy="80" r="3" fill="#00b0ff" opacity="0.5"/>
+    <circle cx="180" cy="80" r="3" fill="#00b0ff" opacity="0.5"/>
+    <circle cx="20" cy="180" r="2.5" fill="#00e676" opacity="0.4"/>
+    <circle cx="160" cy="180" r="2.5" fill="#00e676" opacity="0.4"/>
+    <circle cx="90" cy="0" r="3" fill="#00b0ff" opacity="0.3"/>
+    <circle cx="-10" cy="120" r="2" fill="#ff9800" opacity="0.3"/>
+    <circle cx="190" cy="120" r="2" fill="#ff9800" opacity="0.3"/>
+
+    <!-- Lattice connection lines -->
+    <line x1="0" y1="80" x2="30" y2="55" stroke="#00b0ff" stroke-width="0.8" opacity="0.2"/>
+    <line x1="180" y1="80" x2="150" y2="55" stroke="#00b0ff" stroke-width="0.8" opacity="0.2"/>
+    <line x1="90" y1="0" x2="90" y2="35" stroke="#00b0ff" stroke-width="0.8" opacity="0.2"/>
+    <line x1="0" y1="80" x2="20" y2="180" stroke="#00e676" stroke-width="0.5" opacity="0.15"/>
+    <line x1="180" y1="80" x2="160" y2="180" stroke="#00e676" stroke-width="0.5" opacity="0.15"/>
+  </g>
+
+  <!-- Title -->
+  <text x="400" y="305" font-family="Consolas, monospace" font-size="48" font-weight="bold" fill="#ffffff" text-anchor="middle">TTPSEC</text>
+  <text x="400" y="335" font-family="Segoe UI, sans-serif" font-size="18" fill="#4a5568" text-anchor="middle">Post-Quantum Folder Encryptor</text>
+
+  <!-- Algorithm badges -->
+  <g transform="translate(158, 355)">
+    <rect x="0" y="0" width="105" height="24" rx="4" fill="none" stroke="#00e676" stroke-width="1.2"/>
+    <text x="52" y="16" font-family="Consolas, monospace" font-size="11" font-weight="bold" fill="#00e676" text-anchor="middle">ML-KEM-768</text>
+
+    <rect x="115" y="0" width="110" height="24" rx="4" fill="none" stroke="#00b0ff" stroke-width="1.2"/>
+    <text x="170" y="16" font-family="Consolas, monospace" font-size="11" font-weight="bold" fill="#00b0ff" text-anchor="middle">AES-256-GCM</text>
+
+    <rect x="235" y="0" width="95" height="24" rx="4" fill="none" stroke="#ff9800" stroke-width="1.2"/>
+    <text x="282" y="16" font-family="Consolas, monospace" font-size="11" font-weight="bold" fill="#ff9800" text-anchor="middle">ML-DSA-65</text>
+
+    <rect x="340" y="0" width="85" height="24" rx="4" fill="none" stroke="#9c27b0" stroke-width="1.2"/>
+    <text x="382" y="16" font-family="Consolas, monospace" font-size="11" font-weight="bold" fill="#9c27b0" text-anchor="middle">Argon2id</text>
+
+    <rect x="435" y="0" width="95" height="24" rx="4" fill="none" stroke="#607d8b" stroke-width="1.2"/>
+    <text x="482" y="16" font-family="Consolas, monospace" font-size="11" font-weight="bold" fill="#607d8b" text-anchor="middle">HKDF-SHA256</text>
+  </g>
+</svg>
