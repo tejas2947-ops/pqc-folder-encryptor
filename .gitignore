@@ -1,0 +1,36 @@
+# Build artifacts
+build/
+dist/
+_build/
+*.spec
+*.exe
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Test artifacts
+test_output/
+*.pqc
