@@ -46,6 +46,12 @@ Built by [TTPSEC SpA](https://ttpsec.cl) — OT/ICS Cybersecurity.
 - **Modular architecture** — Clean separation into 8 focused Python modules
 - **No runtime auto-install** — Dependencies managed via `pyproject.toml`; `check_env.py` for environment verification
 
+## Screenshot
+
+<p align="center">
+  <img src="assets/screenshot-gui.png" alt="PQC Folder Encryptor GUI" width="700"/>
+</p>
+
 ## Features
 
 - Modular Python package with clean separation of concerns
