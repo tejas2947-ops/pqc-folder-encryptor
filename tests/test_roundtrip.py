@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """
 Round-trip test: encrypt a folder, decrypt it, verify all files match.
-Exit 0 on success, 1 on failure.
+Also tests rejection of wrong passphrase and tampered containers.
 """
-import sys, os, tempfile, shutil, hashlib
+import hashlib
+import os
+import sys
+import tempfile
+import shutil
 from pathlib import Path
 
-# Add parent dir to path so we can import pqc_encryptor
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from pqc_encryptor import encrypt_folder, decrypt_folder
+
+from pqc_folder_encryptor import encrypt_folder, decrypt_folder
+from pqc_folder_encryptor.exceptions import (
+    DecryptionError,
+    SignatureVerificationError,
+)
 
 
 def sha256_file(path):
@@ -18,7 +27,7 @@ def sha256_file(path):
 def main():
     tmp = Path(tempfile.mkdtemp(prefix="pqc_test_"))
     try:
-        # Create test folder with various files
+        # -- Create test folder --
         src = tmp / "test_folder"
         src.mkdir()
         (src / "hello.txt").write_text("Hello, Post-Quantum World!", encoding="utf-8")
@@ -28,47 +37,60 @@ def main():
         (sub / "deep.txt").write_text("Nested file content", encoding="utf-8")
         (src / "empty.txt").write_bytes(b"")
 
-        # Collect original hashes
         originals = {}
         for f in src.rglob("*"):
             if f.is_file():
-                rel = str(f.relative_to(src))
-                originals[rel] = sha256_file(f)
-
+                originals[str(f.relative_to(src))] = sha256_file(f)
         print(f"Created {len(originals)} test files")
 
-        # Encrypt
+        # -- Encrypt --
         pqc_file = tmp / "test.pqc"
         passphrase = "test-passphrase-!@#$%^&*()"
         r = encrypt_folder(str(src), str(pqc_file), passphrase)
         print(f"Encrypted: {r['files']} files, {r['output_size']:,} bytes")
         assert pqc_file.exists(), "PQC file not created"
 
-        # Decrypt
+        # -- Decrypt --
         dst = tmp / "restored"
         dst.mkdir()
         r = decrypt_folder(str(pqc_file), str(dst), passphrase)
         print(f"Decrypted: {r['files']} files")
 
-        # Verify
+        # -- Verify file integrity --
         restored_dir = dst / "test_folder"
         assert restored_dir.exists(), "Restored folder not found"
 
         for rel, orig_hash in originals.items():
-            restored_file = restored_dir / rel
-            assert restored_file.exists(), f"Missing file: {rel}"
-            restored_hash = sha256_file(restored_file)
-            assert orig_hash == restored_hash, f"Hash mismatch: {rel}"
-
+            normalized_rel = rel.replace("\\", "/")
+            restored_file = restored_dir / normalized_rel
+            assert restored_file.exists(), f"Missing file: {normalized_rel}"
+            assert sha256_file(restored_file) == orig_hash, f"Hash mismatch: {normalized_rel}"
         print(f"Verified {len(originals)} files - ALL MATCH")
 
-        # Test wrong passphrase
+        # -- Wrong passphrase --
         try:
-            decrypt_folder(str(pqc_file), str(tmp / "bad"), "wrong-password")
+            bad_dst = tmp / "bad"
+            bad_dst.mkdir()
+            decrypt_folder(str(pqc_file), str(bad_dst), "wrong-password")
             print("FAIL: Should have raised error for wrong passphrase")
             return 1
-        except ValueError as e:
+        except DecryptionError as e:
             print(f"Wrong passphrase correctly rejected: {e}")
+
+        # -- Tampered container (flip a byte in the ciphertext) --
+        tampered = tmp / "tampered.pqc"
+        data = pqc_file.read_bytes()
+        pos = len(data) - 100
+        tampered_data = data[:pos] + bytes([data[pos] ^ 0xFF]) + data[pos + 1:]
+        tampered.write_bytes(tampered_data)
+        try:
+            tamper_dst = tmp / "tamper_out"
+            tamper_dst.mkdir()
+            decrypt_folder(str(tampered), str(tamper_dst), passphrase)
+            print("FAIL: Should have detected tampering")
+            return 1
+        except Exception as e:
+            print(f"Tampering correctly detected: {type(e).__name__}: {e}")
 
         print("\nAll tests PASSED")
         return 0

@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pqc-folder-encryptor"
+version = "3.0.0"
+description = "Post-quantum folder encryption with ML-KEM-768 + ML-DSA-65 + AES-256-GCM"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "TTPSEC SpA" },
+]
+keywords = ["post-quantum", "encryption", "ML-KEM", "ML-DSA", "PQC", "FIPS-203", "FIPS-204"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security :: Cryptography",
+]
+dependencies = [
+    "pqcrypto>=0.4.0,<1.0",
+    "cryptography>=42.0,<44.0",
+    "argon2-cffi>=25.1.0,<26.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pyinstaller>=6.0",
+]
+
+[project.scripts]
+pqc-folder-encryptor = "pqc_folder_encryptor.cli:main"
+
+[project.gui-scripts]
+pqc-folder-encryptor-gui = "pqc_folder_encryptor.gui:run_gui"
+
+[tool.setuptools.packages.find]
+include = ["pqc_folder_encryptor*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
