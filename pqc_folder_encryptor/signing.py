@@ -85,17 +85,26 @@ class SignerIdentity:
 
     @staticmethod
     def from_trust_store(directory: str) -> SignerIdentity:
-        """Verify against any key in a directory of ``.pub`` files."""
+        """Verify against any key in a directory of ``.pub`` key files.
+
+        Supports both raw key files and JSON-envelope files with
+        metadata (expiry, revocation, labels).  See
+        :mod:`pqc_folder_encryptor.key_management` for the envelope format.
+        """
+        from .key_management import load_key_file
+
         trust_dir = Path(directory)
         if not trust_dir.is_dir():
             raise FileNotFoundError(f"Trust store not found: {directory}")
         fps: Set[bytes] = set()
         keys: Dict[bytes, bytes] = {}
-        for key_file in trust_dir.glob("*.pub"):
-            pk_data = key_file.read_bytes()
-            fp = hashlib.sha256(pk_data).digest()
-            fps.add(fp)
-            keys[fp] = pk_data
+        for kf in trust_dir.glob("*.pub"):
+            meta = load_key_file(kf)
+            # Skip revoked or expired keys
+            if not meta.is_valid:
+                continue
+            fps.add(meta.fingerprint)
+            keys[meta.fingerprint] = meta.public_key
         return SignerIdentity(
             mode="trust_store",
             trusted_fingerprints=fps,

@@ -35,8 +35,8 @@ import struct
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
-from .config import get_suite, Argon2Params
-from .container import ContainerHeader, parse_container, unpack_payload
+from .config import get_suite, Argon2Params, FORMAT_VERSION_PADDED
+from .container import ContainerHeader, parse_container, unpack_payload, unpad_payload
 from .crypto import (
     derive_passphrase_key,
     derive_key,
@@ -49,6 +49,7 @@ from .manifest import (
     verify_file_against_manifest,
 )
 from .signing import verify_container_signature, SignerIdentity
+from .secure_memory import SecureBuffer
 from .exceptions import (
     CorruptedContainerError,
     PathEscapeError,
@@ -122,25 +123,46 @@ def decrypt_and_extract(
         memory_cost=header.argon2_memory,
         parallelism=header.argon2_parallel,
     )
-    ppk, _ = derive_passphrase_key(passphrase, argon2_params, header.argon2_salt)
+    ppk_raw, _ = derive_passphrase_key(passphrase, argon2_params, header.argon2_salt)
+    sb_ppk = SecureBuffer(ppk_raw)
 
-    progress("decrypt_sk", "Recovering private key...", 35)
-    kem_sk = aead_decrypt(
-        ppk, header.sk_nonce, header.encrypted_sk, context="private_key",
-    )
+    try:
+        progress("decrypt_sk", "Recovering private key...", 35)
+        kem_sk_raw = aead_decrypt(
+            bytes(sb_ppk), header.sk_nonce, header.encrypted_sk, context="private_key",
+        )
+    finally:
+        sb_ppk.destroy()
 
-    # -- Step 10: KEM decapsulation + key derivation --
-    progress("decap", "ML-KEM-768 decapsulation...", 45)
-    shared_secret = kem_decapsulate(suite, kem_sk, header.kem_ciphertext)
+    sb_kem_sk = SecureBuffer(kem_sk_raw)
+    try:
+        # -- Step 10: KEM decapsulation + key derivation --
+        progress("decap", "ML-KEM-768 decapsulation...", 45)
+        shared_secret_raw = kem_decapsulate(suite, bytes(sb_kem_sk), header.kem_ciphertext)
+    finally:
+        sb_kem_sk.destroy()
 
-    progress("kdf", "Deriving encryption key (HKDF)...", 50)
-    encryption_key = derive_key(shared_secret, suite.encryption_key_label)
+    sb_ss = SecureBuffer(shared_secret_raw)
+    try:
+        progress("kdf", "Deriving encryption key (HKDF)...", 50)
+        encryption_key_raw = derive_key(bytes(sb_ss), suite.encryption_key_label)
+    finally:
+        sb_ss.destroy()
 
-    # -- Step 11: authenticated decryption of payload --
-    progress("decrypt", "Decrypting payload (AES-256-GCM)...", 55)
-    payload = aead_decrypt(
-        encryption_key, header.data_nonce, header.encrypted_payload,
-    )
+    sb_ek = SecureBuffer(encryption_key_raw)
+    try:
+        # -- Step 11: authenticated decryption of payload --
+        progress("decrypt", "Decrypting payload (AES-256-GCM)...", 55)
+        payload = aead_decrypt(
+            bytes(sb_ek), header.data_nonce, header.encrypted_payload,
+        )
+    finally:
+        sb_ek.destroy()
+
+    # -- Step 11b: remove padding if format version 4 --
+    if header.format_version == FORMAT_VERSION_PADDED:
+        progress("unpad", "Removing padding...", 60)
+        payload = unpad_payload(payload)
 
     # -- Step 12: parse manifest --
     progress("manifest", "Validating manifest...", 65)

@@ -48,6 +48,10 @@ def _normalize_path(path: str) -> str:
     # Unify separators
     path = path.replace("\\", "/")
 
+    # Reject absolute paths before stripping
+    if path.lstrip().startswith("/"):
+        raise UnsafePathError(path)
+
     # Strip leading/trailing slashes and whitespace
     path = path.strip().strip("/")
 

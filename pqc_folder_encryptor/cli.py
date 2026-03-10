@@ -57,11 +57,24 @@ def _build_identity(args: argparse.Namespace) -> SignerIdentity:
     return SignerIdentity.integrity_only()
 
 
+def _parse_padding(value: str) -> int:
+    """Parse a padding size like '1M', '16M', '512K', or raw bytes."""
+    if not value:
+        return 0
+    v = value.strip().upper()
+    if v.endswith("M"):
+        return int(v[:-1]) * 1024 * 1024
+    if v.endswith("K"):
+        return int(v[:-1]) * 1024
+    return int(v)
+
+
 def cmd_encrypt(args: argparse.Namespace) -> None:
     pw = args.passphrase or _get_passphrase("encrypt")
+    padding = _parse_padding(args.padding) if args.padding else 0
     print(f"\nTTPSEC \u2014 PQC Folder Encryptor v{__version__}\n")
 
-    result = encrypt_folder(args.source, args.output, pw, _progress)
+    result = encrypt_folder(args.source, args.output, pw, _progress, padding=padding)
 
     print(f"\n\n  {result['files']} files \u2192 {result['output']}")
     print(f"  Input:  {result['input_size']:>12,} bytes")
@@ -131,6 +144,10 @@ def main(argv: list[str] | None = None) -> None:
     enc.add_argument(
         "--export-key", metavar="PATH",
         help="Export the signing public key to a file",
+    )
+    enc.add_argument(
+        "--padding", metavar="SIZE",
+        help="Pad payload to block size (e.g., 1M, 16M, 512K). Hides true file size.",
     )
 
     # -- decrypt --

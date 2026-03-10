@@ -148,3 +148,19 @@ class IdentityVerificationError(ValidationError):
             "Signer identity verification failed \u2014 "
             "container was not signed by the expected key"
         )
+
+
+class KeyExpiredError(ValidationError):
+    def __init__(self, key_id: str = "") -> None:
+        msg = "Signing key has expired"
+        if key_id:
+            msg += f" ({key_id})"
+        super().__init__(msg)
+
+
+class KeyRevokedError(ValidationError):
+    def __init__(self, key_id: str = "") -> None:
+        msg = "Signing key has been revoked"
+        if key_id:
+            msg += f" ({key_id})"
+        super().__init__(msg)

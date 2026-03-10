@@ -15,7 +15,7 @@ Public API::
 """
 from __future__ import annotations
 
-__version__ = "3.0.0"
+__version__ = "3.1.0"
 
 import struct
 from pathlib import Path
@@ -23,6 +23,8 @@ from typing import Callable, Optional
 
 from .config import (
     DEFAULT_SUITE,
+    FORMAT_VERSION,
+    FORMAT_VERSION_PADDED,
     SuiteId,
     get_suite,
 )
@@ -36,10 +38,11 @@ from .crypto import (
     fingerprint,
 )
 from .manifest import generate_manifest, validate_path_safety, validate_folder_name
-from .container import build_authenticated_region, finalize_container, pack_payload
+from .container import build_authenticated_region, finalize_container, pack_payload, pad_payload
 from .signing import sign_authenticated_region, SignerIdentity
 from .validation import decrypt_and_extract
 from .exceptions import EmptyFolderError
+from .secure_memory import SecureBuffer
 
 ProgressCallback = Callable[[str, str, float], None]
 
@@ -55,6 +58,7 @@ def encrypt_folder(
     progress: ProgressCallback = _null_progress,
     *,
     suite_id: SuiteId = DEFAULT_SUITE,
+    padding: int = 0,
 ) -> dict:
     """Encrypt a directory into a .pqc container.
 
@@ -84,71 +88,96 @@ def encrypt_folder(
 
     # -- Key generation --
     progress("keygen", f"{suite.kem_algorithm}...", 5)
-    kem_pk, kem_sk = kem_generate_keypair(suite)
+    kem_pk, kem_sk_raw = kem_generate_keypair(suite)
 
     progress("keygen", f"{suite.sig_algorithm}...", 8)
-    sig_pk, sig_sk = sig_generate_keypair(suite)
+    sig_pk, sig_sk_raw = sig_generate_keypair(suite)
 
-    # -- KEM encapsulation --
-    progress("encap", "Encapsulating...", 10)
-    kem_ct, shared_secret = kem_encapsulate(suite, kem_pk)
+    # Wrap sensitive keys in SecureBuffers for cleanup
+    sb_kem_sk = SecureBuffer(kem_sk_raw)
+    sb_sig_sk = SecureBuffer(sig_sk_raw)
+    try:
+        # -- KEM encapsulation --
+        progress("encap", "Encapsulating...", 10)
+        kem_ct, shared_secret_raw = kem_encapsulate(suite, kem_pk)
+        sb_ss = SecureBuffer(shared_secret_raw)
 
-    # -- Key derivation with domain separation --
-    progress("kdf", "HKDF \u2192 encryption key...", 12)
-    encryption_key = derive_key(shared_secret, suite.encryption_key_label)
+        try:
+            # -- Key derivation with domain separation --
+            progress("kdf", "HKDF \u2192 encryption key...", 12)
+            encryption_key_raw = derive_key(bytes(sb_ss), suite.encryption_key_label)
+            sb_ek = SecureBuffer(encryption_key_raw)
+        finally:
+            sb_ss.destroy()
 
-    # -- Protect KEM secret key with passphrase --
-    progress("argon2", "Deriving passphrase key (Argon2id)...", 15)
-    ppk, argon2_salt = derive_passphrase_key(
-        passphrase, suite.argon2_defaults,
-    )
-    sk_nonce, encrypted_sk = aead_encrypt(ppk, kem_sk)
+        try:
+            # -- Protect KEM secret key with passphrase --
+            progress("argon2", "Deriving passphrase key (Argon2id)...", 15)
+            ppk_raw, argon2_salt = derive_passphrase_key(
+                passphrase, suite.argon2_defaults,
+            )
+            sb_ppk = SecureBuffer(ppk_raw)
 
-    # -- Read files and build manifest --
-    n = len(files)
-    file_entries = []
-    file_blobs = []
-    for i, (rel, fp) in enumerate(files):
-        progress("read", rel, 20 + (i / n) * 40)
-        # Validate path during encryption too
-        safe_rel = validate_path_safety(rel)
-        data = fp.read_bytes()
-        file_entries.append((safe_rel, data))
-        file_blobs.append(data)
+            try:
+                sk_nonce, encrypted_sk = aead_encrypt(bytes(sb_ppk), bytes(sb_kem_sk))
+            finally:
+                sb_ppk.destroy()
 
-    progress("manifest", "Building manifest...", 62)
-    manifest_bytes = generate_manifest(file_entries)
+            # -- Read files and build manifest --
+            n = len(files)
+            file_entries = []
+            file_blobs = []
+            for i, (rel, fp) in enumerate(files):
+                progress("read", rel, 20 + (i / n) * 40)
+                safe_rel = validate_path_safety(rel)
+                data = fp.read_bytes()
+                file_entries.append((safe_rel, data))
+                file_blobs.append(data)
 
-    # -- Pack and encrypt payload --
-    progress("pack", "Packing payload...", 65)
-    payload = pack_payload(manifest_bytes, file_blobs)
+            progress("manifest", "Building manifest...", 62)
+            manifest_bytes = generate_manifest(file_entries)
 
-    progress("encrypt", f"{suite.aead_algorithm}...", 70)
-    data_nonce, encrypted_payload = aead_encrypt(encryption_key, payload)
+            # -- Pack and encrypt payload --
+            progress("pack", "Packing payload...", 65)
+            payload = pack_payload(manifest_bytes, file_blobs)
 
-    # -- Build authenticated region --
-    progress("build", "Building container...", 78)
-    folder_name = validate_folder_name(folder.name)
+            if padding > 0:
+                progress("pad", f"Padding to {padding // 1024} KB blocks...", 68)
+                payload = pad_payload(payload, padding)
 
-    auth_region = build_authenticated_region(
-        suite_id=suite.suite_id,
-        argon2_salt=argon2_salt,
-        argon2_memory=suite.argon2_defaults.memory_cost,
-        argon2_time=suite.argon2_defaults.time_cost,
-        argon2_parallel=suite.argon2_defaults.parallelism,
-        kem_ciphertext=kem_ct,
-        sk_nonce=sk_nonce,
-        encrypted_sk=encrypted_sk,
-        kem_public_key=kem_pk,
-        sig_public_key=sig_pk,
-        folder_name=folder_name,
-        data_nonce=data_nonce,
-        encrypted_payload=encrypted_payload,
-    )
+            progress("encrypt", f"{suite.aead_algorithm}...", 70)
+            data_nonce, encrypted_payload = aead_encrypt(bytes(sb_ek), payload)
+        finally:
+            sb_ek.destroy()
 
-    # -- Sign the entire authenticated region --
-    progress("sign", f"{suite.sig_algorithm}...", 85)
-    signature = sign_authenticated_region(suite, sig_sk, auth_region)
+        # -- Build authenticated region --
+        progress("build", "Building container...", 78)
+        folder_name = validate_folder_name(folder.name)
+        fv = FORMAT_VERSION_PADDED if padding > 0 else FORMAT_VERSION
+
+        auth_region = build_authenticated_region(
+            suite_id=suite.suite_id,
+            argon2_salt=argon2_salt,
+            argon2_memory=suite.argon2_defaults.memory_cost,
+            argon2_time=suite.argon2_defaults.time_cost,
+            argon2_parallel=suite.argon2_defaults.parallelism,
+            kem_ciphertext=kem_ct,
+            sk_nonce=sk_nonce,
+            encrypted_sk=encrypted_sk,
+            kem_public_key=kem_pk,
+            sig_public_key=sig_pk,
+            folder_name=folder_name,
+            data_nonce=data_nonce,
+            encrypted_payload=encrypted_payload,
+            format_version=fv,
+        )
+
+        # -- Sign the entire authenticated region --
+        progress("sign", f"{suite.sig_algorithm}...", 85)
+        signature = sign_authenticated_region(suite, bytes(sb_sig_sk), auth_region)
+    finally:
+        sb_kem_sk.destroy()
+        sb_sig_sk.destroy()
 
     # -- Finalize and write --
     progress("write", "Writing .pqc file...", 90)

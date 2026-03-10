@@ -80,11 +80,13 @@ Decrypted payload structure
 from __future__ import annotations
 
 import io
+import secrets
 import struct
 from dataclasses import dataclass
 
 from .config import (
-    MAGIC, MAGIC_SIZE, FORMAT_VERSION, SUPPORTED_FORMAT_VERSIONS,
+    MAGIC, MAGIC_SIZE, FORMAT_VERSION, FORMAT_VERSION_PADDED,
+    SUPPORTED_FORMAT_VERSIONS,
     MAX_FOLDER_NAME_LEN, MAX_PAYLOAD_LEN, MAX_SIG_LEN,
     SuiteId, get_suite,
 )
@@ -140,6 +142,7 @@ def build_authenticated_region(
     folder_name: str,
     data_nonce: bytes,
     encrypted_payload: bytes,
+    format_version: int = FORMAT_VERSION,
 ) -> bytes:
     """Build the authenticated region (everything the signature covers).
 
@@ -149,7 +152,7 @@ def build_authenticated_region(
 
     # HEADER
     buf.write(MAGIC)
-    buf.write(struct.pack("!H", FORMAT_VERSION))
+    buf.write(struct.pack("!H", format_version))
     buf.write(struct.pack("!H", suite_id.value))
 
     # KDF_PARAMS
@@ -401,3 +404,38 @@ def unpack_payload(payload: bytes, expected_count: int) -> list[bytes]:
         raise CorruptedContainerError("Unexpected data after file entries")
 
     return blobs
+
+
+# ===================================================================
+# Payload padding (v3.1 — format version 4)
+# ===================================================================
+
+def pad_payload(payload: bytes, block_size: int) -> bytes:
+    """Pad payload to the next multiple of *block_size*.
+
+    Layout::
+
+        original_length  uint64 BE
+        original_payload (original_length bytes)
+        random_padding   (to fill block boundary)
+
+    The length prefix and random padding are inside the AES-GCM
+    ciphertext, so they are integrity-protected.
+    """
+    length_prefix = struct.pack("!Q", len(payload))
+    total = len(length_prefix) + len(payload)
+    pad_needed = block_size - (total % block_size)
+    if pad_needed == 0:
+        pad_needed = block_size  # always add at least one block
+    padding = secrets.token_bytes(pad_needed)
+    return length_prefix + payload + padding
+
+
+def unpad_payload(padded: bytes) -> bytes:
+    """Remove padding added by :func:`pad_payload`."""
+    if len(padded) < 8:
+        raise CorruptedContainerError("Padded payload too short")
+    original_len = struct.unpack("!Q", padded[:8])[0]
+    if 8 + original_len > len(padded):
+        raise CorruptedContainerError("Invalid padding length")
+    return padded[8:8 + original_len]

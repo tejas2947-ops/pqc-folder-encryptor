@@ -92,6 +92,29 @@ def main():
         except Exception as e:
             print(f"Tampering correctly detected: {type(e).__name__}: {e}")
 
+        # -- Encrypt with padding --
+        pqc_padded = tmp / "test_padded.pqc"
+        r = encrypt_folder(str(src), str(pqc_padded), passphrase, padding=1048576)
+        print(f"Encrypted (padded): {r['files']} files, {r['output_size']:,} bytes")
+        assert pqc_padded.exists(), "Padded PQC file not created"
+        assert pqc_padded.stat().st_size >= pqc_file.stat().st_size, \
+            "Padded file should be >= unpadded"
+
+        # -- Decrypt padded container --
+        dst_padded = tmp / "restored_padded"
+        dst_padded.mkdir()
+        r = decrypt_folder(str(pqc_padded), str(dst_padded), passphrase)
+        print(f"Decrypted (padded): {r['files']} files")
+
+        restored_padded = dst_padded / "test_folder"
+        for rel, orig_hash in originals.items():
+            normalized_rel = rel.replace("\\", "/")
+            restored_file = restored_padded / normalized_rel
+            assert restored_file.exists(), f"Missing file (padded): {normalized_rel}"
+            assert sha256_file(restored_file) == orig_hash, \
+                f"Hash mismatch (padded): {normalized_rel}"
+        print(f"Verified {len(originals)} padded files - ALL MATCH")
+
         print("\nAll tests PASSED")
         return 0
 

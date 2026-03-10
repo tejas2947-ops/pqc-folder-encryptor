@@ -20,8 +20,10 @@ from pqc_folder_encryptor.crypto import derive_key, derive_passphrase_key
 from pqc_folder_encryptor.manifest import (
     generate_manifest, parse_manifest, validate_path_safety,
 )
-from pqc_folder_encryptor.container import pack_payload, unpack_payload
-from pqc_folder_encryptor.exceptions import UnsafePathError
+from pqc_folder_encryptor.container import pack_payload, unpack_payload, pad_payload, unpad_payload
+from pqc_folder_encryptor.secure_memory import SecureBuffer, secure_zero
+from pqc_folder_encryptor.key_management import KeyMetadata, load_key_file, export_key_with_metadata
+from pqc_folder_encryptor.exceptions import UnsafePathError, KeyExpiredError, KeyRevokedError
 
 PASS = 0
 FAIL = 0
@@ -177,6 +179,115 @@ def test_big_endian_format():
 
 
 # ===================================================================
+# Padding (v3.1)
+# ===================================================================
+
+def test_pad_unpad_roundtrip():
+    original = b"Hello, padded world!" * 100
+    padded = pad_payload(original, 1024)
+    check("padded length aligned", len(padded) % 1024, 0)
+    check("padded larger", len(padded) > len(original), True)
+    recovered = unpad_payload(padded)
+    check("pad/unpad roundtrip", recovered, original)
+
+
+def test_pad_unpad_empty():
+    original = b""
+    padded = pad_payload(original, 256)
+    check("padded empty aligned", len(padded) % 256, 0)
+    recovered = unpad_payload(padded)
+    check("pad/unpad empty", recovered, original)
+
+
+def test_pad_exact_block():
+    # When data + 8 byte header is exact multiple, should add full block
+    data = b"X" * (1024 - 8)  # exactly 1024 with 8-byte header
+    padded = pad_payload(data, 1024)
+    check("exact block gets extra padding", len(padded), 2048)
+    check("exact block roundtrip", unpad_payload(padded), data)
+
+
+# ===================================================================
+# Secure memory (v3.1)
+# ===================================================================
+
+def test_secure_buffer_bytes():
+    data = b"secret key material"
+    sb = SecureBuffer(data)
+    check("SecureBuffer bytes()", bytes(sb), data)
+    check("SecureBuffer len()", len(sb), len(data))
+    sb.destroy()
+
+
+def test_secure_buffer_context_manager():
+    data = b"\xaa" * 32
+    with SecureBuffer(data) as sb:
+        check("SecureBuffer context bytes", bytes(sb), data)
+    # After exit, buffer should be zeroed
+    check("SecureBuffer zeroed after exit", sb._buf, bytearray(32))
+
+
+def test_secure_zero():
+    buf = bytearray(b"sensitive data here")
+    secure_zero(buf)
+    check("secure_zero clears data", buf, bytearray(len(buf)))
+
+
+# ===================================================================
+# Key metadata (v3.1)
+# ===================================================================
+
+def test_key_metadata_valid():
+    meta = KeyMetadata(
+        public_key=b"test_pk",
+        fingerprint=b"test_fp",
+        status="active",
+    )
+    check("active key is valid", meta.is_valid, True)
+    check("active key not expired", meta.is_expired, False)
+    check("active key not revoked", meta.is_revoked, False)
+
+
+def test_key_metadata_revoked():
+    meta = KeyMetadata(
+        public_key=b"test_pk",
+        fingerprint=b"test_fp",
+        status="revoked",
+    )
+    check("revoked key is_revoked", meta.is_revoked, True)
+    check("revoked key not valid", meta.is_valid, False)
+
+
+def test_key_metadata_expired():
+    from datetime import datetime, timezone, timedelta
+    past = datetime.now(timezone.utc) - timedelta(days=1)
+    meta = KeyMetadata(
+        public_key=b"test_pk",
+        fingerprint=b"test_fp",
+        expires_at=past,
+    )
+    check("expired key is_expired", meta.is_expired, True)
+    check("expired key not valid", meta.is_valid, False)
+
+
+def test_key_export_and_load(tmp_path=None):
+    import tempfile, hashlib as hl
+    tmp = Path(tempfile.mkdtemp(prefix="pqc_key_test_"))
+    try:
+        pk = b"fake_public_key_for_testing_1952_bytes" * 50
+        key_file = tmp / "test.pub"
+        export_key_with_metadata(pk, str(key_file), label="test@ttpsec.com")
+        meta = load_key_file(key_file)
+        check("exported key roundtrip pk", meta.public_key, pk)
+        check("exported key label", meta.label, "test@ttpsec.com")
+        check("exported key status", meta.status, "active")
+        check("exported key fingerprint", meta.fingerprint, hl.sha256(pk).digest())
+    finally:
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ===================================================================
 
 def main():
     print("Running known-answer / regression tests (v3 format)\n")
@@ -195,6 +306,18 @@ def main():
     test_pack_unpack_roundtrip()
     test_pack_unpack_multiple()
     test_big_endian_format()
+
+    print("\n--- v3.1 features ---\n")
+    test_pad_unpad_roundtrip()
+    test_pad_unpad_empty()
+    test_pad_exact_block()
+    test_secure_buffer_bytes()
+    test_secure_buffer_context_manager()
+    test_secure_zero()
+    test_key_metadata_valid()
+    test_key_metadata_revoked()
+    test_key_metadata_expired()
+    test_key_export_and_load()
 
     print(f"\nResults: {PASS} passed, {FAIL} failed")
     return 1 if FAIL else 0

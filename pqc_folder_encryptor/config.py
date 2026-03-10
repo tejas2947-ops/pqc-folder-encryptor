@@ -27,7 +27,8 @@ MAGIC_SIZE = 4
 # incompatible way.  Readers MUST reject unknown versions.
 # ---------------------------------------------------------------------------
 FORMAT_VERSION = 3
-SUPPORTED_FORMAT_VERSIONS = frozenset({3})
+FORMAT_VERSION_PADDED = 4
+SUPPORTED_FORMAT_VERSIONS = frozenset({3, 4})
 
 # ---------------------------------------------------------------------------
 # Maximum field sizes (defense against malformed containers)
@@ -35,6 +36,13 @@ SUPPORTED_FORMAT_VERSIONS = frozenset({3})
 MAX_FOLDER_NAME_LEN = 4096        # bytes
 MAX_PAYLOAD_LEN = 100 * (1024 ** 3)  # 100 GB
 MAX_SIG_LEN = 65536               # bytes
+
+# ---------------------------------------------------------------------------
+# Padding defaults (v3.1)
+# ---------------------------------------------------------------------------
+DEFAULT_PADDING_BLOCK_SIZE = 0        # 0 = no padding (v3 compatible)
+PADDING_BLOCK_1MB = 1024 * 1024       # 1 MB blocks
+PADDING_BLOCK_16MB = 16 * 1024 * 1024 # 16 MB blocks
 
 # ---------------------------------------------------------------------------
 # ML-DSA-65 sizes (FIPS 204) -- used when library does not export them

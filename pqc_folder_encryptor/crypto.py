@@ -120,8 +120,10 @@ def sig_verify(
     """Verify a signature.  Raises SignatureVerificationError on failure."""
     if suite.suite_id == SuiteId.MLKEM768_MLDSA65_AES256GCM:
         try:
-            _mldsa65_verify(pk, message, signature)
+            valid = _mldsa65_verify(pk, message, signature)
         except Exception:
+            raise SignatureVerificationError()
+        if not valid:
             raise SignatureVerificationError()
         return
     raise ValueError(f"No signing implementation for suite {suite.suite_id!r}")
